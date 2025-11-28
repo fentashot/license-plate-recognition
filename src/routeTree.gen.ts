@@ -9,9 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ExternalRouteImport } from './routes/external'
 import { Route as CustomRouteImport } from './routes/custom'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ExternalRoute = ExternalRouteImport.update({
+  id: '/external',
+  path: '/external',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CustomRoute = CustomRouteImport.update({
   id: '/custom',
   path: '/custom',
@@ -26,31 +32,42 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/custom': typeof CustomRoute
+  '/external': typeof ExternalRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/custom': typeof CustomRoute
+  '/external': typeof ExternalRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/custom': typeof CustomRoute
+  '/external': typeof ExternalRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/custom'
+  fullPaths: '/' | '/custom' | '/external'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/custom'
-  id: '__root__' | '/' | '/custom'
+  to: '/' | '/custom' | '/external'
+  id: '__root__' | '/' | '/custom' | '/external'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CustomRoute: typeof CustomRoute
+  ExternalRoute: typeof ExternalRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/external': {
+      id: '/external'
+      path: '/external'
+      fullPath: '/external'
+      preLoaderRoute: typeof ExternalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/custom': {
       id: '/custom'
       path: '/custom'
@@ -71,6 +88,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CustomRoute: CustomRoute,
+  ExternalRoute: ExternalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

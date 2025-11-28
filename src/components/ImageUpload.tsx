@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
 import { Upload } from "lucide-react";
 
+type OnFileSelect = (file: File) => void | Promise<void>;
+
 interface Props {
-  onFileSelect: (file: File) => void;
+  onFileSelect: OnFileSelect;
   disabled?: boolean;
 }
 
@@ -11,7 +13,7 @@ export default function ImageUpload({ onFileSelect, disabled }: Props) {
   const MAX_SIZE = 3.5 * 1024 * 1024; // 3.5MB in bytes
 
   const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
       if (file.size > MAX_SIZE) {
@@ -19,13 +21,13 @@ export default function ImageUpload({ onFileSelect, disabled }: Props) {
         return;
       }
       setError(null);
-      onFileSelect(file);
+      await onFileSelect(file);
     },
     [onFileSelect]
   );
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       const file = e.dataTransfer.files?.[0];
       if (!file || !file.type.startsWith("image/")) return;
@@ -34,7 +36,7 @@ export default function ImageUpload({ onFileSelect, disabled }: Props) {
         return;
       }
       setError(null);
-      onFileSelect(file);
+      await onFileSelect(file);
     },
     [onFileSelect]
   );
@@ -44,9 +46,10 @@ export default function ImageUpload({ onFileSelect, disabled }: Props) {
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
       className={`
-        flex flex-col items-center justify-center w-full h-48
+        flex flex-col items-center justify-center w-full h-48 mb-8
         border-2 border-dashed border-gray-300 rounded-xl
-        bg-gray-50 cursor-pointer transition-colors
+        bg-gray-50 dark:bg-zinc-800 dark:hover:border-zinc-300 dark:border-zinc-500
+        cursor-pointer transition-colors
         hover:border-blue-400 hover:bg-blue-50
         ${disabled ? "opacity-50 cursor-not-allowed" : ""}
       `}

@@ -1,15 +1,13 @@
+import ImageUpload from "@/components/ImageUpload";
 import PlateResult from "@/components/PlateResult";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { createWorker, type Worker } from "tesseract.js";
+import { validateAndCorrectPlate, formatPlate } from "@/lib/plate-utils";
 
 export const Route = createFileRoute("/custom")({
   component: CustomOCR,
 });
-
-// ============================================
-// PREPROCESSING: Przygotowanie obrazu dla OCR
-// ============================================
 
 function preprocessImage(
   file: File
@@ -192,49 +190,10 @@ function filterLetterRegions(
   return valid;
 }
 
-// ============================================
-// WALIDACJA POLSKIEJ TABLICY
-// ============================================
-
-const PL_PLATE_REGEX = /^[A-Z]{2,3}[A-Z0-9]{2,5}$/;
-
-// Mapowanie cyfr na litery (dla korekty błędów OCR w prefiksie)
-const DIGIT_TO_LETTER: Record<string, string> = {
-  "0": "O",
-  "1": "I",
-  "2": "Z",
-  "4": "A",
-  "5": "S",
-  "6": "G",
-  "7": "T",
-  "8": "B",
-  "9": "G",
-};
-
-function validatePLPlate(text: string): string | null {
-  const cleaned = text.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (PL_PLATE_REGEX.test(cleaned)) return cleaned;
-
-  // Próba korekty cyfr w prefiksie (pierwsze 2-3 znaki muszą być literami)
-  for (const prefLen of [3, 2]) {
-    if (cleaned.length <= prefLen) continue;
-    const prefix = cleaned.slice(0, prefLen);
-    const rest = cleaned.slice(prefLen);
-    const corrected = prefix.replace(/\d/g, (d) => DIGIT_TO_LETTER[d] || d);
-    if (PL_PLATE_REGEX.test(corrected + rest)) return corrected + rest;
-  }
-  return null;
-}
-
-// ============================================
-// KOMPONENT REACT
-// ============================================
-
 export default function CustomOCR() {
   const [preview, setPreview] = useState<string | null>(null);
   const [debugPreview, setDebugPreview] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
-  const [validated, setValidated] = useState<string | null>(null);
+  const [plate, setPlate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -247,13 +206,9 @@ export default function CustomOCR() {
     []
   );
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleFile = async (file: File) => {
     setPreview(URL.createObjectURL(file));
-    setResult(null);
-    setValidated(null);
+    setPlate(null);
     setError(null);
     setProgress(0);
     setLoading(true);
@@ -270,6 +225,7 @@ export default function CustomOCR() {
         });
         await workerRef.current.setParameters({
           tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+          preserve_interword_spaces: "1",
         });
       }
 
@@ -277,8 +233,16 @@ export default function CustomOCR() {
         canvas.toDataURL("image/png")
       );
       const text = (data.text || "").trim();
-      setResult(text);
-      setValidated(validatePLPlate(text));
+
+      if (!text) {
+        setError("Nie wykryto tekstu na obrazie");
+        setLoading(false);
+        return;
+      }
+
+      // Użyj wspólnej funkcji walidacji z plate-utils
+      const validated = validateAndCorrectPlate(text);
+      setPlate(validated ?? text.toUpperCase().replace(/[^A-Z0-9]/g, ""));
     } catch (err: any) {
       setError("Błąd: " + (err?.message || err));
     }
@@ -286,9 +250,7 @@ export default function CustomOCR() {
   };
 
   const plateObj = {
-    plate:
-      validated ??
-      (result ? result.toUpperCase().replace(/[^A-Z0-9]/g, "") : null),
+    plate: plate ? formatPlate(plate) : null,
     confidence: undefined as number | undefined,
     region: null as string | null,
   };
@@ -297,12 +259,7 @@ export default function CustomOCR() {
     <div className="container mx-auto px-4 py-8 max-w-xl">
       <h1 className="text-2xl font-bold mb-4">Lokalne rozpoznawanie tablicy</h1>
 
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handleFile}
-        className="mb-4 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700"
-      />
+      <ImageUpload onFileSelect={handleFile} disabled={loading} />
 
       <section className="grid grid-cols-2 gap-4">
         {preview && (
@@ -347,14 +304,15 @@ export default function CustomOCR() {
         </div>
       )}
 
-      {error && <p className="text-red-500">{error}</p>}
+      {error &&   <div className="p-6 bg-red-500 border border-red-800 rounded-xl text-center">
+        <p className="text-black/80 font-semibold">{error}</p>
+      </div>}
 
-      {/* Pokaż wynik przy pomocy komponentu PlateResult. Przekazujemy obiekt zgodny z serwisem OCR. */}
-      {result && (
-        <div className="mt-4">
-          <PlateResult result={plateObj} />
-        </div>
-      )}
+    
+
+      <div className="mt-4">
+        <PlateResult result={plateObj} />
+      </div>
     </div>
   );
 }

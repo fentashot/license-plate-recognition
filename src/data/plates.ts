@@ -406,35 +406,35 @@ export const POLISH_PLATES: Record<string, DistrictInfo> = {
 
 
 //Funkcja do wyszukiwania informacji o powiecie na podstawie prefiksu tablicy
-export function findDistrictByPlatePrefix(plateNumber: string): DistrictInfo | null {
-  // Usuń spacje i znaki specjalne, zostaw tylko litery i cyfry
-  const normalizedPlate = plateNumber.toUpperCase().replace(/[^A-Z0-9]/g, '');
+// export function findDistrictByPlatePrefix(plateNumber: string): DistrictInfo | null {
+//   // Usuń spacje i znaki specjalne, zostaw tylko litery i cyfry
+//   const normalizedPlate = plateNumber.toUpperCase().replace(/[^A-Z0-9]/g, '');
   
-  console.log('Looking for plate prefix in:', normalizedPlate);
+//   console.log('Looking for plate prefix in:', normalizedPlate);
   
-  // Wyodrębnij tylko litery z początku tablicy (prefiks)
-  const prefixMatch = normalizedPlate.match(/^([A-Z]+)/);
-  if (!prefixMatch) {
-    console.log('No letter prefix found');
-    return null;
-  }
+//   // Wyodrębnij tylko litery z początku tablicy (prefiks)
+//   const prefixMatch = normalizedPlate.match(/^([A-Z]+)/);
+//   if (!prefixMatch) {
+//     console.log('No letter prefix found');
+//     return null;
+//   }
   
-  const letterPrefix = prefixMatch[1];
-  console.log('Letter prefix extracted:', letterPrefix);
+//   const letterPrefix = prefixMatch[1];
+//   console.log('Letter prefix extracted:', letterPrefix);
   
-  // Próbuj dopasować od najdłuższego prefiksu (3 znaki) do najkrótszego (1 znak)
-  for (let length = Math.min(letterPrefix.length, 3); length >= 1; length--) {
-    const prefix = letterPrefix.substring(0, length);
-    console.log('Trying prefix:', prefix);
-    if (POLISH_PLATES[prefix]) {
-      console.log('Found district:', POLISH_PLATES[prefix]);
-      return POLISH_PLATES[prefix];
-    }
-  }
+//   // Próbuj dopasować od najdłuższego prefiksu (3 znaki) do najkrótszego (1 znak)
+//   for (let length = Math.min(letterPrefix.length, 3); length >= 1; length--) {
+//     const prefix = letterPrefix.substring(0, length);
+//     console.log('Trying prefix:', prefix);
+//     if (POLISH_PLATES[prefix]) {
+//       console.log('Found district:', POLISH_PLATES[prefix]);
+//       return POLISH_PLATES[prefix];
+//     }
+//   }
   
-  console.log('No matching district found');
-  return null;
-}
+//   console.log('No matching district found');
+//   return null;
+// }
 
 //Funkcja do normalizacji numeru tablicy rejestracyjnej
 export function normalizePlateNumber(plateNumber: string): string {

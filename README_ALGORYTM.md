@@ -2,7 +2,27 @@
 
 ## Podsumowanie w jednym zdaniu
 
-**Wrzucasz zdjęcie → filtrujemy śmieci → zostawiamy tylko litery → Tesseract je czyta → sprawdzamy czy to polska tablica.**
+**Wrzucasz zdjęcie → filtrujemy śmieci → zostawiamy tylko litery → Tesseract je czyta → sprawdzamy czy to polska tablica → szukamy powiatu w bazie.**
+
+---
+
+## Architektura kodu
+
+Kod jest podzielony na moduły z jasno określonymi odpowiedzialnościami:
+
+| Plik                             | Odpowiedzialność                                                           |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `src/lib/plate-utils.ts`         | Wspólne funkcje: normalizacja, walidacja, formatowanie, wyciąganie prefixu |
+| `src/routes/custom.tsx`          | Preprocessing obrazu + lokalne OCR (Tesseract.js)                          |
+| `src/components/PlateResult.tsx` | Wyświetlanie wyniku + lookup powiatu w PocketBase                          |
+| `src/data/plates.ts`             | Lokalna baza prefixów (fallback)                                           |
+
+### Przepływ danych
+
+```
+Obraz → [preprocessing] → [Tesseract OCR] → [walidacja] → [formatowanie] → [lookup powiatu] → Wynik
+         custom.tsx         custom.tsx      plate-utils    plate-utils      PlateResult
+```
 
 ---
 
@@ -203,12 +223,12 @@ Cyfry pomylone z literami → poprawione
 | Cyfra | Litera |
 | ----- | ------ |
 | 0     | O      |
-| 1     | I      |
+| 1     | L      |
 | 2     | Z      |
 | 4     | A      |
 | 5     | S      |
 | 6     | G      |
-| 7     | T      |
+| 7     | Z      |
 | 8     | B      |
 | 9     | G      |
 
@@ -217,6 +237,60 @@ Cyfry pomylone z literami → poprawione
 - OCR zwrócił: `0A12345`
 - Prefix `0A` zawiera cyfrę → zamieniamy `0` na `O`
 - Wynik: `OA12345` ✓
+
+---
+
+## Krok 11: Wyciąganie prefixu i formatowanie
+
+```
+Numer tablicy → prefix + sformatowany wynik
+```
+
+**Logika wyciągania prefixu (plate-utils.ts):**
+
+Dla tablic o długości >= 7 znaków:
+
+- Prefix = wszystko oprócz ostatnich 5 znaków
+- Np. `ZSZ40MY` → prefix `ZS`, reszta `Z40MY`
+
+Dla krótszych tablic:
+
+- Prefix = pierwsze 2-3 litery (match `/^([A-Z]{1,3})/`)
+
+**Formatowanie do wyświetlenia:**
+
+```
+ZSZ40MY → ZS Z40MY (spacja między prefixem a resztą)
+```
+
+Funkcje w `plate-utils.ts`:
+
+- `normalizePlate()` - uppercase + tylko A-Z0-9
+- `extractPrefix()` - wyciąga prefix do lookupu
+- `formatPlate()` - formatuje do wyświetlenia
+- `validateAndCorrectPlate()` - walidacja + korekta błędów OCR
+
+---
+
+## Krok 12: Lookup powiatu w PocketBase
+
+```
+Prefix → informacje o powiecie
+```
+
+**Algorytm (PlateResult.tsx):**
+
+1. Wyciągnij prefix z tablicy używając `extractPrefix()`
+2. Próbuj znaleźć w PocketBase od najdłuższego do najkrótszego:
+   - Np. dla `ZSZ` → próbuj `ZSZ`, potem `ZS`, potem `Z`
+3. Pierwszy znaleziony wynik = powiat
+
+**Dane zwracane:**
+
+- `prefix` - prefix tablicy
+- `district` - nazwa powiatu/miasta
+- `voivodeship` - województwo
+- `postalCode` - kod pocztowy (opcjonalnie)
 
 ---
 
@@ -253,10 +327,22 @@ Cyfry pomylone z literami → poprawione
 │     OCR      │
 └──────┬───────┘
        ↓
-┌──────────────┐
-│  Walidacja   │  ← Sprawdź regex + popraw błędy
-│     PL       │
-└──────┬───────┘
+┌──────────────────────────────────────┐
+│  Walidacja + Korekta (plate-utils)   │
+│  • normalizePlate()                  │
+│  • validateAndCorrectPlate()         │
+└──────┬───────────────────────────────┘
+       ↓
+┌──────────────────────────────────────┐
+│  Formatowanie (plate-utils)          │
+│  • extractPrefix() → lookup          │
+│  • formatPlate() → wyświetlanie      │
+└──────┬───────────────────────────────┘
+       ↓
+┌──────────────────────────────────────┐
+│  Lookup powiatu (PlateResult)        │
+│  • PocketBase query po prefixie      │
+└──────┬───────────────────────────────┘
        ↓
 ┌──────────────┐
 │   Wynik!     │
@@ -289,6 +375,15 @@ Cyfry pomylone z literami → poprawione
 4. **Connected Components** - znajdujemy plamy
 5. **Filtrowanie** - zostawiamy tylko te o kształcie liter
 6. **Tesseract** - czytamy tekst
-7. **Walidacja** - sprawdzamy i poprawiamy
+7. **Walidacja** - sprawdzamy regex i poprawiamy błędy OCR
+8. **Formatowanie** - wyciągamy prefix i formatujemy do wyświetlenia
+9. **Lookup** - szukamy powiatu w PocketBase
+
+**Wspólne funkcje w `plate-utils.ts`:**
+
+- `normalizePlate()` - normalizacja tekstu
+- `extractPrefix()` - wyciąganie prefixu
+- `formatPlate()` - formatowanie do wyświetlenia
+- `validateAndCorrectPlate()` - walidacja + korekta
 
 **Koniec!** 🎉

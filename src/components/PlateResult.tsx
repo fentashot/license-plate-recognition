@@ -1,9 +1,9 @@
 import { CheckCircle, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { PlateResult } from "@/services/ocr-service";
-import { type DistrictInfo } from "@/data/plates";
+import type { DistrictInfo } from "@/data/plates";
 import { extractPrefix } from "@/lib/plate-utils";
-import PocketBase from "pocketbase";
+import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 interface Props {
@@ -11,53 +11,66 @@ interface Props {
 }
 
 export default function PlateResult({ result }: Props) {
+  const { pb } = useAuth();
   const [district, setDistrict] = useState<DistrictInfo | null>(null);
 
   useEffect(() => {
+    if (!result?.plate || !pb) return;
+
     let mounted = true;
-    const plate = result.plate;
-    if (!plate) return;
 
-    (async () => {
-      const pbUrl = (import.meta.env.VITE_POCKETBASE_URL as string) || "";
-      if (!pbUrl) return;
-
+    const lookupAndSave = async () => {
       try {
-        const pb = new PocketBase(pbUrl);
-        const prefix = extractPrefix(plate);
-        if (!prefix) return;
+        const prefix = extractPrefix(result.plate as string);
 
-        // Próbuj od najdłuższego do najkrótszego prefixu
+        // Try prefix lengths from longest (3) to shortest (1)
         for (let len = Math.min(3, prefix.length); len >= 1; len--) {
           const subPrefix = prefix.substring(0, len);
+          
           try {
-            const rec = await pb
+            const record = await pb
               .collection("plates")
               .getFirstListItem(`prefix = "${subPrefix}"`);
-            if (rec && mounted) {
-              setDistrict({
-                prefix: rec.prefix ?? subPrefix,
-                district: rec.district ?? rec.name ?? "Nieznany",
-                voivodeship: rec.voivodeship ?? rec.region ?? "Nieznane",
-                postalCode: rec.postalCode ?? rec.postal_code ?? null,
-              });
-              break;
-            }
+
+            if (!record || !mounted) return;
+
+            const districtData: DistrictInfo = {
+              prefix: record.prefix ?? subPrefix,
+              district: record.district ?? record.name ?? "Nieznany",
+              voivodeship: record.voivodeship ?? record.region ?? "Nieznane",
+              postalCode: record.postalCode ?? record.postal_code ?? null,
+            };
+
+            setDistrict(districtData);
+
+            // Save to history
+            await pb.collection("checked_plates").create({
+              user: pb.authStore.record?.id,
+              raw_text: result.plate,
+              prefix: districtData.prefix,
+              district: districtData.district,
+              voivodeship: districtData.voivodeship,
+              postal_code: districtData.postalCode,
+            });
+
+            break;
           } catch {
-            continue;
+            // Try next prefix length
           }
         }
-      } catch {
-        // ignore pb errors
+      } catch (error) {
+        console.error("Błąd wyszukiwania powiatu:", error);
       }
-    })();
+    };
 
-    return () => { mounted = false; };
-  }, [result.plate]);
+    lookupAndSave();
 
-  if (!result.plate) {
-    return null;
-  }
+    return () => {
+      mounted = false;
+    };
+  }, [result.plate, pb]);
+
+  if (!result.plate) return null;
 
   return (
     <Card className="rounded-xl shadow-sm">
@@ -72,16 +85,16 @@ export default function PlateResult({ result }: Props) {
       </CardHeader>
 
       {district && (
-        <CardContent className="flex items-start gap-2 rounded-lg">
-          <MapPin className="w-6 h-6 text-blue-500 mt-0.5" />
-          <div>
-            <p className="font-semibold text-lg">{district.district}</p>
-            <p className=" text-gray-500">{district.voivodeship}</p>
-            {district.postalCode && (
-              <p className="text-sm text-gray-400">
-                Kod: {district.postalCode}
-              </p>
-            )}
+        <CardContent className="space-y-1">
+          <div className="flex items-start gap-2">
+            <MapPin className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-lg">{district.district}</p>
+              <p className="text-sm text-gray-500">{district.voivodeship}</p>
+              {district.postalCode && (
+                <p className="text-xs text-gray-400">Kod: {district.postalCode}</p>
+              )}
+            </div>
           </div>
         </CardContent>
       )}

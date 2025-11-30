@@ -1,16 +1,5 @@
-import ImageUpload from "@/components/ImageUpload";
-import PlateResult from "@/components/PlateResult";
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
-import { createWorker, type Worker } from "tesseract.js";
-import { validateAndCorrectPlate, formatPlate } from "@/lib/plate-utils";
-
-export const Route = createFileRoute("/custom")({
-  component: CustomOCR,
-});
-
-function preprocessImage(
-  file: File
+export function preprocessImage(
+  file: File,
 ): Promise<{ canvas: HTMLCanvasElement; debugUrl: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -30,7 +19,7 @@ function preprocessImage(
       const gray = new Uint8Array(w * h);
       for (let i = 0; i < data.length; i += 4) {
         gray[i / 4] = Math.round(
-          0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+          0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2],
         );
       }
 
@@ -63,7 +52,7 @@ function preprocessImage(
 }
 
 // Otsu - automatyczny próg binaryzacji
-function otsuThreshold(gray: Uint8Array): number {
+export function otsuThreshold(gray: Uint8Array): number {
   const hist = new Array(256).fill(0);
   for (const v of gray) hist[v]++;
 
@@ -91,10 +80,10 @@ function otsuThreshold(gray: Uint8Array): number {
 }
 
 // Connected Components (Union-Find)
-function connectedComponents(
+export function connectedComponents(
   binary: Uint8Array,
   w: number,
-  h: number
+  h: number,
 ): Int32Array {
   const labels = new Int32Array(w * h);
   const parent: number[] = [0];
@@ -137,10 +126,10 @@ function connectedComponents(
 }
 
 // Filtruj regiony - zachowaj tylko te o kształcie liter
-function filterLetterRegions(
+export function filterLetterRegions(
   labels: Int32Array,
   w: number,
-  h: number
+  h: number,
 ): Set<number> {
   const bounds = new Map<
     number,
@@ -188,131 +177,4 @@ function filterLetterRegions(
     }
   }
   return valid;
-}
-
-export default function CustomOCR() {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [debugPreview, setDebugPreview] = useState<string | null>(null);
-  const [plate, setPlate] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const workerRef = useRef<Worker | null>(null);
-
-  useEffect(
-    () => () => {
-      workerRef.current?.terminate();
-    },
-    []
-  );
-
-  const handleFile = async (file: File) => {
-    setPreview(URL.createObjectURL(file));
-    setPlate(null);
-    setError(null);
-    setProgress(0);
-    setLoading(true);
-
-    try {
-      const { canvas, debugUrl } = await preprocessImage(file);
-      setDebugPreview(debugUrl);
-
-      if (!workerRef.current) {
-        workerRef.current = await createWorker("eng", 1, {
-          logger: (m) =>
-            m.status === "recognizing text" &&
-            setProgress(Math.round((m.progress || 0) * 100)),
-        });
-        await workerRef.current.setParameters({
-          tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-          preserve_interword_spaces: "1",
-        });
-      }
-
-      const { data } = await workerRef.current.recognize(
-        canvas.toDataURL("image/png")
-      );
-      const text = (data.text || "").trim();
-
-      if (!text) {
-        setError("Nie wykryto tekstu na obrazie");
-        setLoading(false);
-        return;
-      }
-
-      // Użyj wspólnej funkcji walidacji z plate-utils
-      const validated = validateAndCorrectPlate(text);
-      setPlate(validated ?? text.toUpperCase().replace(/[^A-Z0-9]/g, ""));
-    } catch (err: any) {
-      setError("Błąd: " + (err?.message || err));
-    }
-    setLoading(false);
-  };
-
-  const plateObj = {
-    plate: plate ? formatPlate(plate) : null,
-    confidence: undefined as number | undefined,
-    region: null as string | null,
-  };
-
-  return (
-    <div className="container mx-auto px-4 py-8 max-w-xl">
-      <h1 className="text-2xl font-bold mb-4">Lokalne rozpoznawanie tablicy</h1>
-
-      <ImageUpload onFileSelect={handleFile} disabled={loading} />
-
-      <section className="grid grid-cols-2 gap-4">
-        {preview && (
-          <div className="mb-4">
-            <p className="text-xs text-gray-400">Oryginał:</p>
-            <img
-              src={preview}
-              alt="preview"
-              className="w-full rounded border"
-            />
-          </div>
-        )}
-
-        {debugPreview && (
-          <div className="mb-4">
-            <p className="text-xs text-gray-400">Przetworzony:</p>
-            <img
-              src={debugPreview}
-              alt="debug"
-              className="w-full rounded border bg-black"
-            />
-            <a
-              href={debugPreview}
-              download="debug.png"
-              className=" text-xs text-blue-500 underline"
-            >
-              Pobierz
-            </a>
-          </div>
-        )}
-      </section>
-
-      {loading && (
-        <div className="mb-4">
-          <p className="text-blue-500">Przetwarzanie... {progress}%</p>
-          <div className="w-full bg-gray-200 rounded h-3">
-            <div
-              className="bg-blue-500 h-3 rounded"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {error &&   <div className="p-6 bg-red-500 border border-red-800 rounded-xl text-center">
-        <p className="text-black/80 font-semibold">{error}</p>
-      </div>}
-
-    
-
-      <div className="mt-4">
-        <PlateResult result={plateObj} />
-      </div>
-    </div>
-  );
 }

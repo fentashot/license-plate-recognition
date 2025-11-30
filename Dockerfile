@@ -1,5 +1,5 @@
 
-FROM oven/bun:1-alpine as builder
+FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
@@ -12,6 +12,9 @@ COPY . .
 RUN bun run build
 
 FROM nginx:alpine
+
+# upgrade system packages to pull in security fixes for known vulnerabilities
+RUN apk update && apk upgrade --no-cache
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 

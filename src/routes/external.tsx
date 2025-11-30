@@ -1,13 +1,22 @@
-import { useState } from 'react';
-import { createFileRoute } from '@tanstack/react-router';
-import { Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 
-import ImageUpload from '@/components/ImageUpload';
-import PlateResult from '@/components/PlateResult';
-import { recognizePlate, type PlateResult as PlateResultType } from '@/services/ocr-service';
+import ImageUpload from "@/components/ImageUpload";
+import PlateResult from "@/components/PlateResult";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import {
+  recognizePlate,
+  type PlateResult as PlateResultType,
+} from "@/services/ocr-service";
+import { useAuth } from "@/context/AuthContext";
 
-export const Route = createFileRoute('/external')({
-  component: External,
+export const Route = createFileRoute("/external")({
+  component: () => (
+    <ProtectedRoute isVerifiedOnly>
+      <External />
+    </ProtectedRoute>
+  ),
 });
 
 function External() {
@@ -16,17 +25,21 @@ function External() {
   const [result, setResult] = useState<PlateResultType | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
+  const {pb} = useAuth();
+
   async function handleFileSelect(file: File) {
+
     setIsLoading(true);
     setError(null);
     setResult(null);
     setPreview(URL.createObjectURL(file));
 
     try {
+      await pb.collection("users").authRefresh();
       const plateResult = await recognizePlate(file);
       setResult(plateResult);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Wystąpił błąd');
+      setError(err instanceof Error ? err.message : "Wystąpił błąd");
     } finally {
       setIsLoading(false);
     }
@@ -34,7 +47,9 @@ function External() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-xl">
-      <h1 className="text-2xl font-bold mb-4">Rozpoznawanie tablicy zew. API</h1>
+      <h1 className="text-2xl font-bold mb-4">
+        Rozpoznawanie tablicy zew. API
+      </h1>
 
       <div className="space-y-6">
         {/* Upload */}

@@ -9,18 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as LocalRouteImport } from './routes/local'
+import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ExternalRouteImport } from './routes/external'
-import { Route as CustomRouteImport } from './routes/custom'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LocalRoute = LocalRouteImport.update({
+  id: '/local',
+  path: '/local',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExternalRoute = ExternalRouteImport.update({
   id: '/external',
   path: '/external',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomRoute = CustomRouteImport.update({
-  id: '/custom',
-  path: '/custom',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -31,48 +43,70 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/custom': typeof CustomRoute
   '/external': typeof ExternalRoute
+  '/history': typeof HistoryRoute
+  '/local': typeof LocalRoute
+  '/profile': typeof ProfileRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/custom': typeof CustomRoute
   '/external': typeof ExternalRoute
+  '/history': typeof HistoryRoute
+  '/local': typeof LocalRoute
+  '/profile': typeof ProfileRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/custom': typeof CustomRoute
   '/external': typeof ExternalRoute
+  '/history': typeof HistoryRoute
+  '/local': typeof LocalRoute
+  '/profile': typeof ProfileRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/custom' | '/external'
+  fullPaths: '/' | '/external' | '/history' | '/local' | '/profile'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/custom' | '/external'
-  id: '__root__' | '/' | '/custom' | '/external'
+  to: '/' | '/external' | '/history' | '/local' | '/profile'
+  id: '__root__' | '/' | '/external' | '/history' | '/local' | '/profile'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CustomRoute: typeof CustomRoute
   ExternalRoute: typeof ExternalRoute
+  HistoryRoute: typeof HistoryRoute
+  LocalRoute: typeof LocalRoute
+  ProfileRoute: typeof ProfileRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/local': {
+      id: '/local'
+      path: '/local'
+      fullPath: '/local'
+      preLoaderRoute: typeof LocalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/external': {
       id: '/external'
       path: '/external'
       fullPath: '/external'
       preLoaderRoute: typeof ExternalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/custom': {
-      id: '/custom'
-      path: '/custom'
-      fullPath: '/custom'
-      preLoaderRoute: typeof CustomRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -87,8 +121,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CustomRoute: CustomRoute,
   ExternalRoute: ExternalRoute,
+  HistoryRoute: HistoryRoute,
+  LocalRoute: LocalRoute,
+  ProfileRoute: ProfileRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

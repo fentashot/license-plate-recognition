@@ -1,5 +1,5 @@
 export function preprocessImage(
-  file: File,
+  file: File
 ): Promise<{ canvas: HTMLCanvasElement; debugUrl: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -19,7 +19,7 @@ export function preprocessImage(
       const gray = new Uint8Array(w * h);
       for (let i = 0; i < data.length; i += 4) {
         gray[i / 4] = Math.round(
-          0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2],
+          0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
         );
       }
 
@@ -51,7 +51,7 @@ export function preprocessImage(
   });
 }
 
-// Otsu - automatyczny próg binaryzacji
+// Otsu
 export function otsuThreshold(gray: Uint8Array): number {
   const hist = new Array(256).fill(0);
   for (const v of gray) hist[v]++;
@@ -79,11 +79,11 @@ export function otsuThreshold(gray: Uint8Array): number {
   return threshold;
 }
 
-// Connected Components (Union-Find)
+// (Union-Find)
 export function connectedComponents(
   binary: Uint8Array,
   w: number,
-  h: number,
+  h: number
 ): Int32Array {
   const labels = new Int32Array(w * h);
   const parent: number[] = [0];
@@ -118,7 +118,6 @@ export function connectedComponents(
     }
   }
 
-  // Flatten labels
   for (let i = 0; i < labels.length; i++) {
     if (labels[i]) labels[i] = find(labels[i]);
   }
@@ -129,7 +128,7 @@ export function connectedComponents(
 export function filterLetterRegions(
   labels: Int32Array,
   w: number,
-  h: number,
+  h: number
 ): Set<number> {
   const bounds = new Map<
     number,
